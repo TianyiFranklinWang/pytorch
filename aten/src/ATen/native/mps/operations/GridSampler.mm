@@ -1,4 +1,6 @@
 #define TORCH_ASSERT_ONLY_METHOD_OPERATORS
+#include <optional>
+
 #include <ATen/mps/MPSProfiler.h>
 #include <ATen/native/CanUse32BitIndexMath.h>
 #include <ATen/native/GridSamplerUtils.h>
@@ -14,6 +16,7 @@
 #include <ATen/ops/grid_sampler_2d.h>
 #include <ATen/ops/grid_sampler_2d_backward_native.h>
 #include <ATen/ops/grid_sampler_2d_native.h>
+#include <ATen/ops/grid_sampler_3d.h>
 #include <ATen/ops/grid_sampler_3d_backward_native.h>
 #include <ATen/ops/grid_sampler_3d_native.h>
 #include <ATen/ops/zeros_like.h>
@@ -200,7 +203,18 @@ Tensor grid_sampler_2d_mps(const Tensor& input,
                            const Tensor& grid,
                            int64_t interpolation_mode,
                            int64_t padding_mode,
-                           bool align_corners) {
+                           bool align_corners,
+                           std::optional<double> value) {
+  if (static_cast<GridSamplerPadding>(padding_mode) == GridSamplerPadding::Constant) {
+    TORCH_WARN_ONCE("MPS: Constant padding mode is not supported. ",
+                    "Falling back on CPU. This may have performance implications.");
+
+    return at::grid_sampler_2d(
+               input.to("cpu"), grid.to("cpu"), interpolation_mode, padding_mode, align_corners, value)
+        .clone()
+        .to("mps");
+  }
+
   auto in_size = input.sizes();
   auto grid_size = grid.sizes();
   auto output = at::empty({in_size[0], in_size[1], grid_size[1], grid_size[2]}, input.options());
@@ -213,7 +227,18 @@ Tensor grid_sampler_3d_mps(const Tensor& input,
                            const Tensor& grid,
                            int64_t interpolation_mode,
                            int64_t padding_mode,
-                           bool align_corners) {
+                           bool align_corners,
+                           std::optional<double> value) {
+  if (static_cast<GridSamplerPadding>(padding_mode) == GridSamplerPadding::Constant) {
+    TORCH_WARN_ONCE("MPS: Constant padding mode is not supported. ",
+                    "Falling back on CPU. This may have performance implications.");
+
+    return at::grid_sampler_3d(
+               input.to("cpu"), grid.to("cpu"), interpolation_mode, padding_mode, align_corners, value)
+        .clone()
+        .to("mps");
+  }
+
   auto output = at::empty({0}, input.options(), MemoryFormat::Contiguous);
   mps::grid_sampler_3d_mps_impl(output,
                                 input,
