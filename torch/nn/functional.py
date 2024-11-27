@@ -5491,6 +5491,7 @@ GRID_SAMPLE_PADDING_MODES = {
     "zeros": 0,
     "border": 1,
     "reflection": 2,
+    "constant": 3,
 }
 
 
